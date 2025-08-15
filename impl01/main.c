@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 typedef struct Node
 {
@@ -106,24 +107,23 @@ void printGraph(Graph *graph) // so para debugar
 int main(int argc, char **argv)
 {
     FILE *fptr;
-    int escolha;
-    printf("Testar: \n\t1. Arquivo com 100 vertices.\n\t2. Arquivo com 50000 vertices.\nDigite: ");
-    scanf("%d", &escolha);
-    while (escolha != 1 && escolha != 2)
-    {
-        printf("Favor digitar um numero valido.\n");
-        scanf("%d", &escolha);
-    }
-    switch (escolha)
-    {
-    case 1:
-        fptr = fopen("graph-test-100-1.txt", "r");
-        break;
-    case 2:
-        fptr = fopen("graph-test-50000-1.txt", "r");
-        break;
-    }
     char buffer[64];
+    printf("Digite o NOME do arquivo .txt a ser lido (max 64 caracteres): ");
+    fgets(buffer, 64, stdin);
+    size_t tamanho = strlen(buffer);
+    char *arquivo = malloc(sizeof(char) * (tamanho + 4));
+    memcpy(arquivo, buffer, strlen(buffer));
+    arquivo[tamanho - 1] = '.';
+    arquivo[tamanho] = 't';
+    arquivo[tamanho + 1] = 'x';
+    arquivo[tamanho + 2] = 't';
+    arquivo[tamanho + 3] = '\0';
+    fptr = fopen(arquivo, "r");
+    if (fptr == NULL)
+    {
+        printf("Erro ao encontrar o arquivo.\n");
+        return -1;
+    }
     int vertices, arestas;
     fgets(buffer, 64, fptr);
     sscanf(buffer, "%d %d", &vertices, &arestas);
