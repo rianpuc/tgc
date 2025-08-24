@@ -1,10 +1,15 @@
 # Implementação N.01
 ## Como compilar
 
-Utilizando o Makefile, escreva no terminal:
-```make all```
+Utilizando o Makefile, você pode optar por três alternativas:
 
-O comando gerará o binário para execução.
+```make adjlist``` para a versão do grafo com lista de adjacência.
+
+```make forwardstar``` para a versão do grafo com *forward star* e *reverse star*.
+
+```make all``` para compilar ambas as versões.
+
+Os comandos gerarão o binário desejado para execução.
 
 ## Como testar
 
