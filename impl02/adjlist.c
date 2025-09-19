@@ -3,14 +3,6 @@
 #include <string.h>
 #include <stdbool.h>
 
-typedef enum
-{
-    Arvore,
-    Retorno,
-    Avanco,
-    Cruzamento,
-} Classificacao;
-
 typedef struct Node
 {
     int id;
