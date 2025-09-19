@@ -197,7 +197,8 @@ int main(int argc, char **argv)
         pointer_r[i - 1] = pointer_r[i] - qtd;
     }
     /////////////////////////////////////////////////////////////
-
+    printPointer(pointer, vertices);
+    printPointer(pointer_r, vertices);
     int user_input = 1;
     printf("Digite um vertice de 1 ate %d (-1 para sair): ", vertices);
     scanf("%d", &user_input);
