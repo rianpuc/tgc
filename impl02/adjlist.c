@@ -75,6 +75,64 @@ int verTopoDaPilha()
     return stack.head->id;
 }
 
+void insertion_sort(Lista *vizinhanca)
+{
+    if (vizinhanca == NULL || vizinhanca->head == NULL || vizinhanca->head->next == NULL)
+    {
+        return;
+    }
+    Node *i = vizinhanca->head->next;
+    while (i != NULL)
+    {
+        Node *chave = i;
+        Node *j = i->prev;
+        Node *proximo = i->next;
+        while (j != NULL && j->id > chave->id)
+        {
+            j = j->prev;
+        }
+        if (j != chave->prev)
+        {
+            chave->prev->next = chave->next;
+            if (chave->next != NULL)
+            {
+                chave->next->prev = chave->prev;
+            }
+            else
+            {
+                vizinhanca->tail = chave->prev;
+            }
+            if (j == NULL)
+            {
+                chave->next = vizinhanca->head;
+                vizinhanca->head->prev = chave;
+                chave->prev = NULL;
+                vizinhanca->head = chave;
+            }
+            else
+            {
+                chave->next = j->next;
+                if (j->next != NULL)
+                {
+                    j->next->prev = chave;
+                }
+                j->next = chave;
+                chave->prev = j;
+            }
+        }
+        i = proximo;
+    }
+}
+
+void ordenarVizinhos(Graph *graph)
+{
+    int n = graph->vc;
+    for (int i = 0; i < n; i++)
+    {
+        insertion_sort(&graph->v[i]);
+    }
+}
+
 Graph initializeGraph(int vertices) // funcao para inicializar o grafo
 {
     Graph grafo;
@@ -249,6 +307,7 @@ int main(int argc, char **argv)
         addVertex(&graph, origem - 1, destino - 1);
     }
     int user_input = 1;
+    ordenarVizinhos(&graph);
     // printGraph(&graph);
     DFS *dfs_table = initializeDFSTable(vertices);
     // printDFS(dfs_table, vertices);
