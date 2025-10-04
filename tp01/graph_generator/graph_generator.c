@@ -1,7 +1,6 @@
 #include "graph_generator.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <time.h>
 #include <stdbool.h>
 
 void insertion_sort(Lista *vizinhanca)
@@ -327,7 +326,6 @@ void printDegrees(Graph *graph)
 
 Graph createGraph(int vertices, Densidade d)
 {
-    srand(time(NULL));
     Graph graph = initializeGraph(vertices);
     populateGraph(&graph, vertices, false, d);
     ordenarVizinhos(&graph);
@@ -336,7 +334,6 @@ Graph createGraph(int vertices, Densidade d)
 
 Graph createGraphConexo(int vertices, Densidade d)
 {
-    srand(time(NULL));
     Graph graph = initializeGraph(vertices);
     populateGraph(&graph, vertices, true, d);
     ordenarVizinhos(&graph);

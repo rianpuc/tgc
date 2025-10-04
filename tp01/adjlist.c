@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 #include "graph_generator/graph_generator.h"
 
 typedef struct
@@ -140,6 +141,7 @@ void printDFS(DFS *dfs_table, int vertices)
 
 int main()
 {
+    srand(time(NULL));
     Graph graph = createGraphNotEulerian(5, ESPARSO);
     printGraph(&graph);
     printDegrees(&graph);
