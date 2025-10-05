@@ -51,11 +51,11 @@ Graph createGraphConexo(int vertices, Densidade d);
 Graph createGraphEulerian(int vertices, Densidade d);
 Graph createGraphSemiEulerian(int vertices, Densidade d);
 Graph createGraphNotEulerian(int vertices, Densidade d);
+Graph createHaltereGraph();
+Graph importGraph(const char *filename);
+void exportGraph(Graph *graph, const char *filename);
 Graph copyGraph(Graph *source);
 void removeEdgeLocal(Graph *graph, int u, int v);
-Graph createHaltereGraph();
-void cleanupMemory();
+void initGlobalPools();
 void resetGlobalState();
-void printDegrees(Graph *graph);
-
 #endif

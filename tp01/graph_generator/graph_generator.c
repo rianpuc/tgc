@@ -26,6 +26,14 @@ long node_pool_index = 0;
 HashNode *hash_node_pool_buffer;
 long hash_node_pool_index = 0;
 
+void freeHashTable()
+{
+    for (int i = 0; i < HASH_TABLE_SIZE; i++)
+    {
+        edge_hash_table[i] = NULL;
+    }
+}
+
 Node *pool_allocate_node(int id)
 {
     if (node_pool_index >= MAX_NODES)
@@ -49,6 +57,27 @@ HashNode *pool_allocate_hash_node()
     HashNode *novo = &hash_node_pool_buffer[hash_node_pool_index++];
     novo->next = NULL;
     return novo;
+}
+
+void initGlobalPools()
+{
+    if (node_pool_buffer == NULL)
+    {
+        node_pool_buffer = (Node *)malloc(sizeof(Node) * MAX_NODES);
+        hash_node_pool_buffer = (HashNode *)malloc(sizeof(HashNode) * MAX_HASH_NODES);
+        if (!node_pool_buffer || !hash_node_pool_buffer)
+        {
+            perror("FALHA CRÍTICA: Não foi possível alocar o pool de memória");
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
+void resetGlobalState()
+{
+    node_pool_index = 0;
+    hash_node_pool_index = 0;
+    freeHashTable();
 }
 
 unsigned int hash_edge(int u, int v)
@@ -249,6 +278,23 @@ bool arestaExiste(int u, int v)
     return false;
 }
 
+Graph simpleInitialization(int vertices)
+{
+    Graph grafo;
+    grafo.odd_vertices_pool = malloc(sizeof(int) * vertices);
+    grafo.odd_count = 0;
+    grafo.vc = vertices;
+    grafo.v = malloc(sizeof(Lista) * vertices);
+    grafo.grau = malloc(sizeof(int) * vertices);
+    grafo.arestas = 0;
+    for (int i = 0; i < vertices; i++) // inicializando tudo como null
+    {
+        grafo.v[i].head = grafo.v[i].tail = NULL;
+        grafo.grau[i] = 0;
+    }
+    return grafo;
+}
+
 Graph initializeGraph(int vertices) // funcao para inicializar o grafo
 {
     Graph grafo;
@@ -381,6 +427,31 @@ void removeEdge(Graph *graph, int u, int v)
     graph->arestas -= 1;
 }
 
+void addEdgeToListImport(Lista *list, int id)
+{
+    Node *novo = (Node *)malloc(sizeof(Node));
+    if (!novo)
+    {
+        perror("Falha de alocacao para Node");
+        exit(EXIT_FAILURE);
+    }
+
+    novo->id = id;
+    novo->next = NULL;
+    novo->prev = NULL;
+
+    if (list->head == NULL)
+    {
+        list->head = list->tail = novo;
+    }
+    else
+    {
+        list->tail->next = novo;
+        novo->prev = list->tail;
+        list->tail = novo;
+    }
+}
+
 void addEdgeToList(Lista *list, int id)
 {
     // Node *novo = malloc(sizeof(Node));
@@ -396,6 +467,41 @@ void addEdgeToList(Lista *list, int id)
         list->tail->next = novo;
         novo->prev = list->tail;
         list->tail = novo;
+    }
+}
+
+void addEdgeImport(Graph *graph, int u, int v)
+{
+    if (u == v || arestaExiste(u, v))
+    {
+        return;
+    }
+
+    bool u_era_impar = (graph->grau[u] % 2 != 0);
+    bool v_era_impar = (graph->grau[v] % 2 != 0);
+
+    addEdgeToListImport(&graph->v[u], v);
+    addEdgeToListImport(&graph->v[v], u);
+
+    graph->arestas += 1;
+    graph->grau[u] += 1;
+    graph->grau[v] += 1;
+
+    if (u_era_impar)
+    {
+        removeOddVertex(graph, u);
+    }
+    else
+    {
+        graph->odd_vertices_pool[graph->odd_count++] = u;
+    }
+    if (v_era_impar)
+    {
+        removeOddVertex(graph, v);
+    }
+    else
+    {
+        graph->odd_vertices_pool[graph->odd_count++] = v;
     }
 }
 
@@ -455,7 +561,7 @@ void populateGraph(Graph *graph, int vertices, Densidade d)
     switch (d)
     {
     case ESPARSO:
-        prob = 0.0006;
+        prob = 0.00006;
         break;
     case MEDIO:
         prob = 0.45;
@@ -808,20 +914,50 @@ Graph createHaltereGraph()
     return graph;
 }
 
-void cleanupMemory()
+void exportGraph(Graph *graph, const char *filename)
 {
-    if (node_pool_buffer)
-        free(node_pool_buffer);
-    if (hash_node_pool_buffer)
-        free(hash_node_pool_buffer);
+    FILE *fp = fopen(filename, "w");
+    fprintf(fp, "%d %d\n", graph->vc, graph->arestas);
+    for (int u = 0; u < graph->vc; u++)
+    {
+        Node *ptr = graph->v[u].head;
+        while (ptr != NULL)
+        {
+            int v = ptr->id;
+            if (u < v)
+            {
+                fprintf(fp, "%d %d\n", u, v);
+            }
+            ptr = ptr->next;
+        }
+    }
+    fclose(fp);
+    fprintf(stderr, "Grafo exportado com sucesso para %s.\n", filename);
 }
 
-void resetGlobalState()
+Graph importGraph(const char *filename)
 {
+    FILE *fp = fopen(filename, "r");
+    freeHashTable();
     node_pool_index = 0;
     hash_node_pool_index = 0;
-    for (int i = 0; i < HASH_TABLE_SIZE; i++)
+    int vertices, arestas_total;
+    if (fscanf(fp, "%d %d", &vertices, &arestas_total) != 2)
     {
-        edge_hash_table[i] = NULL;
+        fprintf(stderr, "Erro de formato no cabecalho do arquivo.\n");
+        fclose(fp);
+        Graph empty_graph = {.vc = 0};
+        return empty_graph;
     }
+    Graph graph = simpleInitialization(vertices);
+    int u, v;
+    int edges_read = 0;
+    while (fscanf(fp, "%d %d", &u, &v) == 2)
+    {
+        addEdgeImport(&graph, u, v);
+        edges_read++;
+    }
+    fclose(fp);
+    ordenarVizinhos(&graph);
+    return graph;
 }
