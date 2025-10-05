@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <time.h>
+#include <math.h>
 #include "graph_generator/graph_generator.h"
 #define min(a, b) (((a) < (b)) ? (a) : (b))
 
@@ -534,89 +535,128 @@ void printPontes(Ponte *pontes, int quantidade)
     }
 }
 
-void run_tests(int num_tests)
+void run_tests() // gerado pelo gemini
 {
-    const char *categorias[3] = {"eulerians", "semieulerians", "noneulerians"};
-    const int sizes[] = {100, 1000, 10000};
-    const int num_categorias = sizeof(categorias) / sizeof(categorias[0]);
+    // Configuração dos testes
+    const char *categories[] = {"eulerians", "semieulerians", "noneulerians"};
+    // Incluímos 10k e 100k, assumindo que você os terá pré-gerados
+    const int sizes[] = {100, 1000};
+    const int num_categories = sizeof(categories) / sizeof(categories[0]);
     const int num_sizes = sizeof(sizes) / sizeof(sizes[0]);
-    fprintf(stderr, "\n--- INICIANDO VALIDAÇÃO LÓGICA DO FLEURY (%d TESTES POR ARQUIVO) ---\n", num_tests);
-    for (int k = 0; k < num_categorias; k++)
+
+    // VARIÁVEIS DE ACUMULAÇÃO GERAL
+    double total_time_tarjan_global = 0.0;
+    double total_time_naive_global = 0.0;
+    int successful_runs_count = 0; // Conta quantos arquivos foram testados com sucesso
+
+    // Matriz de resultados (tamanho: 3 categorias * 4 tamanhos)
+    double *results_tarjan = malloc(sizeof(double) * (num_categories * num_sizes));
+    double *results_naive = malloc(sizeof(double) * (num_categories * num_sizes));
+
+    // Inicialização (Zero)
+    for (int i = 0; i < num_categories * num_sizes; i++)
+    {
+        results_tarjan[i] = 0.0;
+        results_naive[i] = 0.0;
+    }
+
+    fprintf(stderr, "\n--- INICIANDO BENCHMARKING DE PERFORMANCE ---\n");
+
+    int array_index = 0;
+    for (int k = 0; k < num_categories; k++)
     {
         for (int m = 0; m < num_sizes; m++)
         {
             int V = sizes[m];
-            const char *category = categorias[k];
-
-            // 1. Constrói o nome do arquivo (e.g., testing/eulerians/graph-100.txt)
+            const char *category = categories[k];
             char filename[256];
             snprintf(filename, sizeof(filename), "testing/%s/graph-%d.txt", category, V);
 
             fprintf(stderr, "\n== TESTANDO: %s (V=%d) ==\n", category, V);
 
-            for (int t = 0; t < num_tests; t++)
+            Graph g = importGraph(filename);
+            if (g.vc == 0)
             {
-                Graph g = importGraph(filename);
-                if (g.vc == 0)
-                {
-                    fprintf(stderr, "ERRO: Arquivo %s nao encontrado ou vazio. Pulando.\n", filename);
-                    break;
-                }
-                int path_size_N;
-                int *path_naive = fleuryTarjan(&g, &path_size_N);
-
-                if (path_naive == NULL)
-                {
-                    fprintf(stderr, "   [%d/%d] FALHA: Algoritmo falhou em encontrar o caminho.\n", t + 1, num_tests);
-                }
-                else
-                {
-                    // Se o tamanho do caminho for o esperado (arestas + 1)
-                    if (path_size_N == g.arestas + 1)
-                    {
-                        fprintf(stderr, "   [%d/%d] SUCESSO: Caminho de tamanho %d encontrado. (Tarjan/Naive OK)\n",
-                                t + 1, num_tests, path_size_N);
-                    }
-                    else
-                    {
-                        fprintf(stderr, "   [%d/%d] ERRO: Caminho incompleto (Esperado: %d, Naive: %d)\n",
-                                t + 1, num_tests, g.arestas + 1, path_size_N);
-                    }
-                    free(path_naive);
-                }
-                // int path_size_T, path_size_N;
-                // int *path_tarjan = fleuryTarjan(&g, &path_size_T);
-                // int *path_naive = fleuryNaive(&g, &path_size_N);
-
-                // if (path_tarjan == NULL || path_naive == NULL)
-                // {
-                //     fprintf(stderr, "   [%d/%d] FALHA: Algoritmo falhou em encontrar o caminho.\n", t + 1, num_tests);
-                // }
-                // else
-                // {
-                //     // Se o tamanho do caminho for o esperado (arestas + 1)
-                //     if (path_size_T == g.arestas + 1 && path_size_N == g.arestas + 1)
-                //     {
-                //         fprintf(stderr, "   [%d/%d] SUCESSO: Caminho de tamanho %d encontrado. (Tarjan/Naive OK)\n",
-                //                 t + 1, num_tests, path_size_T);
-                //     }
-                //     else
-                //     {
-                //         fprintf(stderr, "   [%d/%d] ERRO: Caminho incompleto (Esperado: %d, Tarjan: %d, Naive: %d)\n",
-                //                 t + 1, num_tests, g.arestas + 1, path_size_T, path_size_N);
-                //     }
-                //     free(path_tarjan);
-                //     free(path_naive);
-                // }
-                freeGraph(&g);
+                fprintf(stderr, "ERRO: Arquivo %s nao encontrado. Pulando.\n", filename);
+                array_index++;
+                continue;
             }
+
+            int path_size_T, path_size_N;
+
+            clock_t start_T = clock();
+            int *path_tarjan = fleuryTarjan(&g, &path_size_T);
+            clock_t end_T = clock();
+
+            clock_t start_N = clock();
+            int *path_naive = fleuryNaive(&g, &path_size_N);
+            clock_t end_N = clock();
+
+            if (path_tarjan != NULL && path_naive != NULL &&
+                path_size_T == g.arestas + 1 && path_size_N == g.arestas + 1)
+            {
+                double time_T = (double)(end_T - start_T) / CLOCKS_PER_SEC;
+                double time_N = (double)(end_N - start_N) / CLOCKS_PER_SEC;
+
+                results_tarjan[array_index] = time_T;
+                results_naive[array_index] = time_N;
+
+                total_time_tarjan_global += time_T;
+                total_time_naive_global += time_N;
+                successful_runs_count++;
+            }
+            else
+            {
+                results_tarjan[array_index] = 0;
+                results_naive[array_index] = 0;
+                successful_runs_count++;
+            }
+
+            if (path_tarjan)
+                free(path_tarjan);
+            if (path_naive)
+                free(path_naive);
+            freeGraph(&g);
+            array_index++;
         }
     }
+
+    printf("\n--- RESULTADOS GERAIS DO FLEURY ---\n");
+    printf("| V | Tipo | Tarjan (s) | Naive (s) | Speedup (x) |\n");
+    printf("|---|---|---|---|---|\n");
+
+    array_index = 0;
+    for (int m = 0; m < num_sizes; m++)
+    {
+        for (int k = 0; k < num_categories; k++)
+        {
+
+            int array_index = (k * num_sizes) + m;
+
+            double time_T = results_tarjan[array_index];
+            double time_N = results_naive[array_index];
+
+            double speedup = (time_T > 0) ? time_N / time_T : 0.0;
+
+            printf("| %d | %s | %.6f | %.6f | %.2f |\n",
+                   sizes[m], categories[k], time_T, time_N, speedup);
+        }
+    }
+
+    printf("\n--- MÉTRICAS GLOBAIS (%d Testes) ---\n", successful_runs_count);
+
+    double avg_T_global = total_time_tarjan_global / successful_runs_count;
+    double avg_N_global = total_time_naive_global / successful_runs_count;
+    double avg_speedup = (avg_T_global > 0) ? avg_N_global / avg_T_global : 0.0;
+
+    printf("Tempo Medio Tarjan: %.6f segundos\n", avg_T_global);
+    printf("Tempo Medio Naive:  %.6f segundos\n", avg_N_global);
+    printf("Speedup Medio (Naive/Tarjan): %.2f vezes mais rapido.\n", avg_speedup);
 }
 
 int main()
 {
     srand(time(NULL));
-    run_tests(5);
+    run_tests();
     return 0;
 }
