@@ -1,5 +1,6 @@
 CC = gcc
-CFLAGS = -Wall -Wextra -std=c99
+#CFLAGS = -Wall -Wextra -std=c99 -O3 -march=native -ffast-math -m64
+CFLAGS = -Wall -Wextra -std=c99 -O3 -march=native -ffast-math
 OBJS = graph_generator.o
 
 all: adjlist
