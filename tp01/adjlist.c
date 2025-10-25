@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <stdbool.h>
 #include <time.h>
 #include <math.h>
@@ -171,6 +172,12 @@ void freeGraph(Graph *graph)
     }
 }
 
+void resetDFSTable(DFS *dfs_table, int vertices)
+{
+    size_t size = sizeof(DFS) * vertices;
+    memset(dfs_table, 0, size);
+}
+
 void adicionarPonte(Pontes *pontes, int p, int u)
 {
     Ponte nova;
@@ -314,12 +321,12 @@ int getStartingVertex(Graph *graph)
     }
 }
 
-Pontes pontesTarjan(Graph *graph)
+Pontes pontesTarjan(Graph *graph, DFS *dfs)
 {
     Pontes pontes;
     pontes.count = 0;
     pontes.lista = malloc(sizeof(Ponte) * (graph->vc - 1));
-    DFS *dfs = initializeDFSTable(graph->vc);
+    resetDFSTable(dfs, graph->vc);
     tempo = 0;
     DFS_Stack(graph, dfs, &pontes);
     return pontes;
@@ -350,18 +357,52 @@ Pontes pontesNaive(Graph *graph)
     return pontes;
 }
 
-bool isBridgeTarjan(Pontes *pontes, int u, int v)
+// bool isBridgeTarjan(Pontes *pontes, int u, int v)
+// {
+//     bool found = false;
+//     for (int i = 0; i < pontes->count; i++)
+//     {
+//         if ((pontes->lista[i].u == u && pontes->lista[i].v == v) || (pontes->lista[i].u == v && pontes->lista[i].v == u))
+//         {
+//             found = true;
+//             break;
+//         }
+//     }
+//     return found;
+// }
+
+bool isBridgeTarjan(DFS *dfs_table, int u, int v)
 {
-    bool found = false;
-    for (int i = 0; i < pontes->count; i++)
-    {
-        if ((pontes->lista[i].u == u && pontes->lista[i].v == v) || (pontes->lista[i].u == v && pontes->lista[i].v == u))
+    // A lógica de ponte deve ser: Se (u,v) é uma aresta de árvore e LOW[v] > TD[u].
+
+    // 1. Identificar Pai e Filho na Árvore DFS
+    int p, child;
+
+    // Tarjan requer que a aresta seja da ÁRVORE DFS.
+    // Como você está checando todos os vizinhos, precisamos ver quem é o pai de quem.
+    if (dfs_table[u].TD < dfs_table[v].TD)
+    { // u é o pai (desceu para v)
+        p = u;
+        child = v;
+    }
+    else
+    { // v é o pai (desceu para u)
+        p = v;
+        child = u;
+    }
+
+    // 2. Critério Mágico (LOW > TD)
+    // Se a aresta {u, v} é uma aresta de árvore, e a subárvore do filho não volta.
+    if (dfs_table[v].pai == u || dfs_table[u].pai == v)
+    { // É uma aresta da Árvore DFS
+        if (dfs_table[child].LOW > dfs_table[p].TD)
         {
-            found = true;
-            break;
+            return true;
         }
     }
-    return found;
+
+    // Para todas as arestas de retorno e arestas que não são pontes
+    return false;
 }
 
 bool isBridgeNaive(Graph *current_graph, int u, int v)
@@ -390,14 +431,14 @@ int *fleuryTarjan(Graph *source_graph, int *path_length)
         return NULL;
     }
     Graph g_copy = copyGraph(source_graph);
-
+    DFS *tabela_dfs = initializeDFSTable(source_graph->vc);
     int *path = malloc(sizeof(int) * (source_graph->arestas + 1));
     int current_path_length = 0;
     int current_v = start_v;
 
     while (g_copy.arestas > 0)
     {
-        Pontes todas_pontes = pontesTarjan(&g_copy);
+        Pontes todas_pontes = pontesTarjan(&g_copy, tabela_dfs);
         path[current_path_length++] = current_v;
         int next_v = -1;
         int bridge_v = -1;
@@ -406,7 +447,7 @@ int *fleuryTarjan(Graph *source_graph, int *path_length)
         while (neighbor != NULL)
         {
             int v = neighbor->id;
-            bool is_bridge = isBridgeTarjan(&todas_pontes, current_v, v);
+            bool is_bridge = isBridgeTarjan(tabela_dfs, current_v, v);
             if (!is_bridge)
             {
                 next_v = v;
@@ -537,121 +578,111 @@ void printPontes(Ponte *pontes, int quantidade)
 
 void run_tests() // gerado pelo gemini
 {
-    // Configuração dos testes
-    const char *categories[] = {"eulerians", "semieulerians", "noneulerians"};
-    // Incluímos 10k e 100k, assumindo que você os terá pré-gerados
-    const int sizes[] = {100, 1000};
+    int num_tests = 1;
+    const char *categories[] = {"eulerians", "semieulerians"};
+    // Usamos apenas os tamanhos que você quer testar
+    const int sizes[] = {100, 1000, 10000, 100000};
     const int num_categories = sizeof(categories) / sizeof(categories[0]);
     const int num_sizes = sizeof(sizes) / sizeof(sizes[0]);
+    const int total_scenarios = num_categories * num_sizes;
 
-    // VARIÁVEIS DE ACUMULAÇÃO GERAL
-    double total_time_tarjan_global = 0.0;
-    double total_time_naive_global = 0.0;
-    int successful_runs_count = 0; // Conta quantos arquivos foram testados com sucesso
+    // Array para armazenar o TEMPO TOTAL acumulado para cada cenário
+    double *total_times_tarjan = (double *)calloc(total_scenarios, sizeof(double));
+    if (!total_times_tarjan)
+        exit(EXIT_FAILURE);
 
-    // Matriz de resultados (tamanho: 3 categorias * 4 tamanhos)
-    double *results_tarjan = malloc(sizeof(double) * (num_categories * num_sizes));
-    double *results_naive = malloc(sizeof(double) * (num_categories * num_sizes));
+    // Array para contar quantas vezes cada cenário rodou com SUCESSO (para a média)
+    int *successful_runs = (int *)calloc(total_scenarios, sizeof(int));
+    if (!successful_runs)
+        exit(EXIT_FAILURE);
 
-    // Inicialização (Zero)
-    for (int i = 0; i < num_categories * num_sizes; i++)
+    fprintf(stderr, "\n--- INICIANDO BENCHMARKING DE PERFORMANCE (N=%d) ---\n", num_tests);
+
+    // ######################################################
+    // 1. LOOP EXTERNO DE REPETIÇÃO (N vezes)
+    // ######################################################
+    for (int t = 0; t < num_tests; t++)
     {
-        results_tarjan[i] = 0.0;
-        results_naive[i] = 0.0;
+        int array_index = 0; // Índice para o array de resultados (de 0 a 8)
+
+        for (int k = 0; k < num_categories; k++)
+        {
+            for (int m = 0; m < num_sizes; m++)
+            {
+                int V = sizes[m];
+                const char *category = categories[k];
+                char filename[256];
+                snprintf(filename, sizeof(filename), "testing/%s/graph-%d.txt", category, V);
+
+                fprintf(stderr, "\n== SETUP: %s (V=%d) ==\n", category, V);
+
+                Graph g = importGraph(filename);
+                if (g.vc == 0)
+                {
+                    array_index++;
+                    continue;
+                } // Falha na importação
+
+                // --- MEDIÇÃO ---
+                clock_t start_T = clock();
+                int path_size_T;
+                int *path_tarjan = fleuryTarjan(&g, &path_size_T);
+                clock_t end_T = clock();
+
+                double time_T = (double)(end_T - start_T) / CLOCKS_PER_SEC;
+
+                // --- VALIDAÇÃO E ACUMULAÇÃO ---
+                bool is_valid_for_fleury = (checkDegrees(&g) != NAO_EULERIANO);
+                bool success = (path_tarjan != NULL && path_size_T == g.arestas + 1);
+
+                if (!is_valid_for_fleury) // Se o grafo for NAO_EULERIANO (o Fleury deve falhar)
+                {
+                    // Não acumulamos tempo (0.0) e não contamos a rodada (é um teste lógico)
+                    // Mas se quisermos o tempo zero, podemos fazer a lógica:
+                    // total_times_tarjan[array_index] += 0.0;
+                }
+                else if (success) // Se for EULERIANO/SEMI-EULERIANO e o caminho estiver COMPLETO
+                {
+                    total_times_tarjan[array_index] += time_T; // Acumula o tempo
+                    successful_runs[array_index]++;            // Conta a rodada como SUCESSO
+                }
+                // Senão, é um erro inesperado (Euleriano falhou), não acumulamos nem contamos.
+
+                // --- LIMPEZA ---
+                if (path_tarjan)
+                    free(path_tarjan);
+                freeGraph(&g);
+                array_index++;
+            }
+        }
     }
 
-    fprintf(stderr, "\n--- INICIANDO BENCHMARKING DE PERFORMANCE ---\n");
+    // --- IMPRESSÃO DOS RESULTADOS FINAIS (MÉDIA) ---
+    printf("\n--- TEMPOS MÉDIOS DO FLEURY NAIVE (N=%d Rodadas) ---\n", num_tests);
+    printf("| V | Tipo | Tempo Medio (s) |\n");
+    printf("|---|---|---|\n");
 
     int array_index = 0;
-    for (int k = 0; k < num_categories; k++)
+    for (int m = 0; m < num_sizes; m++) // Tamanho
     {
-        for (int m = 0; m < num_sizes; m++)
+        for (int k = 0; k < num_categories; k++) // Categoria
         {
-            int V = sizes[m];
-            const char *category = categories[k];
-            char filename[256];
-            snprintf(filename, sizeof(filename), "testing/%s/graph-%d.txt", category, V);
+            int current_array_index = (k * num_sizes) + m;
+            double total_time = total_times_tarjan[current_array_index];
+            int runs = successful_runs[array_index];
 
-            fprintf(stderr, "\n== TESTANDO: %s (V=%d) ==\n", category, V);
+            // Calcula a média. Se não houver sucesso (runs=0), o tempo é 0.
+            double avg_time = (runs > 0) ? (total_time / runs) : 0.0;
 
-            Graph g = importGraph(filename);
-            if (g.vc == 0)
-            {
-                fprintf(stderr, "ERRO: Arquivo %s nao encontrado. Pulando.\n", filename);
-                array_index++;
-                continue;
-            }
+            printf("| %d | %s | %.6f |\n", sizes[m], categories[k], avg_time);
 
-            int path_size_T, path_size_N;
-
-            clock_t start_T = clock();
-            int *path_tarjan = fleuryTarjan(&g, &path_size_T);
-            clock_t end_T = clock();
-
-            clock_t start_N = clock();
-            int *path_naive = fleuryNaive(&g, &path_size_N);
-            clock_t end_N = clock();
-
-            if (path_tarjan != NULL && path_naive != NULL &&
-                path_size_T == g.arestas + 1 && path_size_N == g.arestas + 1)
-            {
-                double time_T = (double)(end_T - start_T) / CLOCKS_PER_SEC;
-                double time_N = (double)(end_N - start_N) / CLOCKS_PER_SEC;
-
-                results_tarjan[array_index] = time_T;
-                results_naive[array_index] = time_N;
-
-                total_time_tarjan_global += time_T;
-                total_time_naive_global += time_N;
-                successful_runs_count++;
-            }
-            else
-            {
-                results_tarjan[array_index] = 0;
-                results_naive[array_index] = 0;
-                successful_runs_count++;
-            }
-
-            if (path_tarjan)
-                free(path_tarjan);
-            if (path_naive)
-                free(path_naive);
-            freeGraph(&g);
             array_index++;
         }
     }
 
-    printf("\n--- RESULTADOS GERAIS DO FLEURY ---\n");
-    printf("| V | Tipo | Tarjan (s) | Naive (s) | Speedup (x) |\n");
-    printf("|---|---|---|---|---|\n");
-
-    array_index = 0;
-    for (int m = 0; m < num_sizes; m++)
-    {
-        for (int k = 0; k < num_categories; k++)
-        {
-
-            int array_index = (k * num_sizes) + m;
-
-            double time_T = results_tarjan[array_index];
-            double time_N = results_naive[array_index];
-
-            double speedup = (time_T > 0) ? time_N / time_T : 0.0;
-
-            printf("| %d | %s | %.6f | %.6f | %.2f |\n",
-                   sizes[m], categories[k], time_T, time_N, speedup);
-        }
-    }
-
-    printf("\n--- MÉTRICAS GLOBAIS (%d Testes) ---\n", successful_runs_count);
-
-    double avg_T_global = total_time_tarjan_global / successful_runs_count;
-    double avg_N_global = total_time_naive_global / successful_runs_count;
-    double avg_speedup = (avg_T_global > 0) ? avg_N_global / avg_T_global : 0.0;
-
-    printf("Tempo Medio Tarjan: %.6f segundos\n", avg_T_global);
-    printf("Tempo Medio Naive:  %.6f segundos\n", avg_N_global);
-    printf("Speedup Medio (Naive/Tarjan): %.2f vezes mais rapido.\n", avg_speedup);
+    // Libera os arrays alocados
+    free(total_times_tarjan);
+    free(successful_runs);
 }
 
 int main()

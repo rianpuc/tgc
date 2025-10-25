@@ -4,8 +4,9 @@
 #include <stdbool.h>
 #include <time.h>
 #define MAX_VERTICES 100000
-#define MAX_NODES (1500000000)
-#define MAX_HASH_NODES (750000000)
+#define MAX_ARESTAS 250000
+#define MAX_NODES (2 * MAX_ARESTAS * 2)
+#define MAX_HASH_NODES (250000)
 
 HashNode *edge_hash_table[HASH_TABLE_SIZE];
 

@@ -53,6 +53,7 @@ Graph createGraphSemiEulerian(int vertices, Densidade d);
 Graph createGraphNotEulerian(int vertices, Densidade d);
 Graph createHaltereGraph();
 Graph importGraph(const char *filename);
+Graph_Type checkDegrees(Graph *graph);
 void exportGraph(Graph *graph, const char *filename);
 Graph copyGraph(Graph *source);
 void removeEdgeLocal(Graph *graph, int u, int v);
