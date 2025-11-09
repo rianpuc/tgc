@@ -6,7 +6,7 @@
 #include "algorithms/algorithms.h"
 #include "graph_generator/graph_generator.h"
 
-const double TIMEOUT_LIMIT = 600.0; // 10 minutos timeout
+const double TIMEOUT_LIMIT = 600; // 10 minutos timeout
 const int raios_otimos[40] = {
     127, 98, 93, 74, 48, // 1-5
     84, 64, 55, 37, 20,  // 6-10
@@ -99,12 +99,8 @@ void rodarTodosOsTestes()
     char filename[256];
     Graph graph;
 
-    // Defina seu limite de tempo em segundos (ex: 300s = 5 minutos)
-    const double TIMEOUT_LIMIT = 300.0;
     bool exato_timeout_atingido = false;
 
-    // Imprime o cabecalho da tabela (formato CSV)
-    // CSV (Separado por Ponto-e-Virgula) e facil de colar no Excel/Google Sheets
     printf("Instancia;V;k;RaioOtimo;RaioAprox;TempoAprox(s);RaioExato;TempoExato(s)\n");
 
     for (int i = 1; i <= 40; i++)
@@ -133,12 +129,13 @@ void rodarTodosOsTestes()
         }
         else
         {
+            bool timed_out_neste_grafo = false;
             clock_t start_exato = clock();
-            raio_exato = algoritmoExato(&graph);
+            raio_exato = algoritmoExato(&graph, start_exato, TIMEOUT_LIMIT, &timed_out_neste_grafo);
             clock_t end_exato = clock();
             tempo_exato = (double)(end_exato - start_exato) / CLOCKS_PER_SEC;
 
-            if (tempo_exato > TIMEOUT_LIMIT)
+            if (timed_out_neste_grafo)
             {
                 exato_timeout_atingido = true;
                 printf("### TIMEOUT ATINGIDO NO GRAFO %d (%.2fs) ###\n", i, tempo_exato);
@@ -210,13 +207,21 @@ int main()
             if (graph_loaded)
             {
                 printf("Executando Algoritmo Exato (pode demorar)...\n");
+                bool timed_out_neste_grafo = false;
                 clock_t start = clock();
-                int raioExato = algoritmoExato(&current_graph);
+                int raioExato = algoritmoExato(&current_graph, start, TIMEOUT_LIMIT, &timed_out_neste_grafo);
                 clock_t end = clock();
                 double tempo = (double)(end - start) / CLOCKS_PER_SEC;
-                printf("--- Resultado (Exato) ---\n");
-                printf("Raio encontrado: %d\n", raioExato);
-                printf("Tempo de execucao: %.7f segundos\n", tempo);
+                if (timed_out_neste_grafo)
+                {
+                    printf("### TIMEOUT ATINGIDO ###\n");
+                }
+                else
+                {
+                    printf("--- Resultado (Exato) ---\n");
+                    printf("Raio encontrado: %d\n", raioExato);
+                    printf("Tempo de execucao: %.7f segundos\n", tempo);
+                }
             }
             else
             {
