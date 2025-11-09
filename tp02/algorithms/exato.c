@@ -7,7 +7,7 @@
 #include "../graph_generator/graph_generator.h"
 #define INF (INT_MAX / 2)
 
-int calcularRaio(int V, int k, int *centros, int **distancias)
+int calcularRaio(int V, int k, int *centros, int **distancias, int melhorRaioGeral)
 {
     int maxRaio = 0;
 
@@ -28,6 +28,10 @@ int calcularRaio(int V, int k, int *centros, int **distancias)
         {
             maxRaio = distCentroMaisProximo;
         }
+        if (maxRaio > melhorRaioGeral)
+        {
+            return maxRaio;
+        }
     }
     return maxRaio;
 }
@@ -38,7 +42,7 @@ void encontrarMelhorRaio(int V, int k, int **distancias,
 
     if (index == k)
     {
-        int raioAtual = calcularRaio(V, k, centros, distancias);
+        int raioAtual = calcularRaio(V, k, centros, distancias, *melhorRaio);
         if (raioAtual < *melhorRaio)
         {
             *melhorRaio = raioAtual;
