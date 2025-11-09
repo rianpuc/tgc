@@ -6,7 +6,7 @@
 #include "algorithms/algorithms.h"
 #include "graph_generator/graph_generator.h"
 
-const double TIMEOUT_LIMIT = 600; // 10 minutos timeout
+const double TIMEOUT_LIMIT = 5; // 10 minutos timeout
 const int raios_otimos[40] = {
     127, 98, 93, 74, 48, // 1-5
     84, 64, 55, 37, 20,  // 6-10
@@ -101,7 +101,7 @@ void rodarTodosOsTestes()
 
     bool exato_timeout_atingido = false;
 
-    printf("Instancia;V;k;RaioOtimo;RaioAprox;TempoAprox(s);RaioExato;TempoExato(s)\n");
+    printf("Instancia;V;k;RaioOtimo;RaioAprox;TempoAprox(s);RaioExato;TempoExato(s);GapAprox(%%)\n");
 
     for (int i = 1; i <= 40; i++)
     {
@@ -138,20 +138,22 @@ void rodarTodosOsTestes()
             if (timed_out_neste_grafo)
             {
                 exato_timeout_atingido = true;
-                printf("### TIMEOUT ATINGIDO NO GRAFO %d (%.2fs) ###\n", i, tempo_exato);
+                tempo_exato = -1.0;
             }
         }
 
         printf("pmed%d;%d;%d;%d;", i, graph.vc, graph.k, raio_otimo);
         printf("%d;%.7f;", raio_aprox, tempo_aprox);
 
+        double gap = ((double)(raio_aprox - raio_otimo) / raio_otimo) * 100;
+
         if (tempo_exato == -1.0)
         {
-            printf("TIMEOUT;TIMEOUT\n");
+            printf("TIMEOUT;TIMEOUT;%.7f\n", gap);
         }
         else
         {
-            printf("%d;%.7f\n", raio_exato, tempo_exato);
+            printf("%d;%.7f;%.7f\n", raio_exato, tempo_exato, gap);
         }
         freeGraph(&graph);
     }
