@@ -6,7 +6,7 @@
 #include "algorithms/algorithms.h"
 #include "graph_generator/graph_generator.h"
 
-const double TIMEOUT_LIMIT = 5; // 10 minutos timeout
+const double TIMEOUT_LIMIT = 600; // 10 minutos timeout
 const int raios_otimos[40] = {
     127, 98, 93, 74, 48, // 1-5
     84, 64, 55, 37, 20,  // 6-10
@@ -275,4 +275,5 @@ int main()
         printf("Grafo desalocado.\n");
     }
     return 0;
+
 }
